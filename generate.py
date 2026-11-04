@@ -82,7 +82,9 @@ def pick_category(history):
 
 
 def llm_script(category, history):
-    key = os.environ["ANTHROPIC_API_KEY"]
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        raise SystemExit("ANTHROPIC_API_KEY manquant : ajoute-le dans Settings > Secrets and variables > Actions")
     past = "; ".join(h["topic"] for h in history[-60:] if h.get("topic")) or "none yet"
     last_err = None
     for _ in range(3):
@@ -100,8 +102,9 @@ def llm_script(category, history):
             },
             timeout=120,
         )
-        r.raise_for_status()
-        text = "".join(b.get("text", "") for b in r.json()["content"])
+        if not r.ok:
+            raise SystemExit(f"API Claude: erreur {r.status_code} -> {r.text[:500]}")
+        text ="".join(b.get("text", "") for b in r.json()["content"])
         try:
             m = re.search(r"\{.*\}", text, re.S)
             data = json.loads(m.group(0))
